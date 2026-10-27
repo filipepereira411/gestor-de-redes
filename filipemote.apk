@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filipemote Mobile</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f4f6f9; 
+            color: #333; 
+            margin: 0; 
+            padding: 15px;
+        }
+        h2 { 
+            color: #1e3a8a; 
+            border-bottom: 2px solid #3b82f6; 
+            padding-bottom: 10px; 
+            margin-top: 10px;
+            font-size: 1.4em;
+        }
+        .config-box { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px; 
+        }
+        .form-group { 
+            margin-bottom: 12px; 
+        }
+        label { 
+            font-weight: bold; 
+            display: block; 
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        input[type="text"], select { 
+            padding: 10px; 
+            width: 100%; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        input[type="text"].ip-input {
+            font-family: monospace;
+            text-align: center;
+        }
+        button { 
+            color: white; 
+            border: none; 
+            padding: 12px 15px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%;
+            font-size: 1em;
+            margin-top: 5px;
+        }
+        .btn-add { background-color: #2563eb; }
+        .btn-add:active { background-color: #1d4ed8; }
+        
+        .btn-remote { background-color: #10b981; padding: 8px 12px; font-size: 0.9em; width: auto; inline-size: max-content; }
+        .btn-remote:active { background-color: #059669; }
+        
+        .btn-remove { background-color: #ef4444; padding: 8px 12px; font-size: 0.9em; width: auto; }
+        .btn-remove:active { background-color: #dc2626; }
+
+        .lista-titulo {
+            color: #1e3a8a; 
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        /* Otimização da Tabela para Formato Mobile Card */
+        .dispositivo-card {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+            border-left: 5px solid #475569;
+        }
+        .dispositivo-card.active-perf {
+            border-left-color: #22c55e;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .card-nome {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #1e293b;
+        }
+        .card-ip {
+            font-family: monospace;
+            font-weight: bold;
+            color: #2563eb;
+            font-size: 1.05em;
+            margin-bottom: 10px;
+        }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .badge-active { background-color: #dcfce7; color: #166534; }
+        .badge-inactive { background-color: #f1f5f9; color: #475569; }
+        
+        .card-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        #status-log { 
+            font-family: monospace; 
+            background: #1e293b; 
+            color: #38bdf8; 
+            padding: 10px; 
+            border-radius: 6px; 
+            margin-top: 20px;
+            font-size: 0.85em;
+            word-break: break-all;
+        }
+    </style>
+    <script language="javascript">
+        var dispositivos = [];
+
+        window.onload = function() {
+            carregarDadosLocais();
+            atualizarLista();
+        };
+
+        // Sincronização paralela com o armazenamento do telemóvel (localStorage)
+        function carregarDadosLocais() {
+            try {
+                var localData = localStorage.getItem("filipemote_db");
+                if (localData) {
+                    dispositivos = JSON.parse(localData);
+                } else {
+                    // Dados padrão iniciais
+                    dispositivos = [{ ip: "192.168.0.2", nome: "Servidor Principal", perifericos: "Sim" }];
+                    salvarDadosLocais();
+                }
+            } catch(e) {
+                dispositivos = [{ ip: "192.168.0.2", nome: "Servidor Principal", perifericos: "Sim" }];
+            }
+        }
+
+        function salvarDadosLocais() {
+            try {
+                localStorage.setItem("filipemote_db", JSON.stringify(dispositivos));
+            } catch(e) {
+                document.getElementById("status-log").innerHTML = "Erro ao sincronizar dados locais.";
+            }
+        }
+
+        function atualizarLista() {
+            var container = document.getElementById("dispositivos-container");
+            if (!container) return;
+            
+            var html = "";
+            if (dispositivos.length === 0) {
+                html = "<div style='text-align:center; color:#64748b; padding: 20px;'>Nenhum dispositivo adicionado.</div>";
+            } else {
+                for (var i = 0; i < dispositivos.length; i++) {
+                    var d = dispositivos[i];
+                    var isSim = (d.perifericos === "Sim");
+                    var cardClass = isSim ? "dispositivo-card active-perf" : "dispositivo-card";
+                    var badgeClass = isSim ? "badge badge-active" : "badge badge-inactive";
+                    var textoBadge = isSim ? "Periféricos: Sim" : "Periféricos: Não";
+
+                    html += "<div class='" + cardClass + "'>";
+                    html += "  <div class='card-header'>";
+                    html += "    <span class='card-nome'>" + d.nome + "</span>";
+                    html += "    <span class='" + badgeClass + "'>" + textoBadge + "</span>";
+                    html += "  </div>";
+                    html += "  <div class='card-ip'>" + d.ip + "</div>";
+                    html += "  <div class='card-actions'>";
+                    html += "    <button class='btn-remote' onclick=\"ExecutarRemoto('" + d.ip + "')\">Remotar (RDP)</button>";
+                    html += "    <button class='btn-remove' onclick='RemoverDispositivo(" + i + ")'>Retirar</button>";
+                    html += "  </div>";
+                    html += "</div>";
+                }
+            }
+            container.innerHTML = html;
+        }
+
+        function AdicionarDispositivo() {
+            var ip = document.getElementById("new_ip").value.trim();
+            var nome = document.getElementById("new_nome").value.trim();
+            var perf = document.getElementById("new_perf").value;
+
+            if (ip === "" || nome === "") {
+                alert("Por favor, preencha o Nome e o IP.");
+                return;
+            }
+
+            dispositivos.push({ ip: ip, nome: nome, perifericos: perf });
+            salvarDadosLocais();
+            atualizarLista();
+            
+            document.getElementById("new_ip").value = "";
+            document.getElementById("new_nome").value = "";
+            
+            var log = document.getElementById("status-log");
+            if (log) log.innerHTML = "Dispositivo " + nome + " adicionado e sincronizado.";
+        }
+
+        function RemoverDispositivo(index) {
+            var removido = dispositivos[index].nome;
+            dispositivos.splice(index, 1);
+            salvarDadosLocais();
+            atualizarLista();
+            
+            var log = document.getElementById("status-log");
+            if (log) log.innerHTML = "Dispositivo " + removido + " removido da base de dados.";
+        }
+
+        function ExecutarRemoto(targetIP) {
+            var log = document.getElementById("status-log");
+            try {
+                if (log) log.innerHTML = "A redirecionar ligação para o app RDP: " + targetIP;
+                
+                // Dispara o URL Scheme padrão do Microsoft Remote Desktop móvel
+                window.location.href = "rdp://full%20address=s:" + targetIP;
+            } catch(e) {
+                alert("Erro ao abrir o protocolo RDP móvel.");
+            }
+        }
+    </script>
+</head>
+<body>
+    <h2>Filipemote Mobile</h2>
+
+    <div class="config-box">
+        <label>Nome do PC:</label>
+        <div class="form-group">
+            <input type="text" id="new_nome" placeholder="Ex: PC Contabilidade">
+        </div>
+        <label>Endereço IP:</label>
+        <div class="form-group">
+            <input type="text" id="new_ip" class="ip-input" placeholder="192.168.1.X">
+        </div>
+        <label>Partilhar Hardware/Periféricos:</label>
+        <div class="form-group">
+            <select id="new_perf">
+                <option value="Sim">Sim (Redirecionamento Completo)</option>
+                <option value="Não">Não</option>
+            </select>
+        </div>
+        <button class="btn-add" onclick="AdicionarDispositivo()">Meter Dispositivo</button>
+    </div>
+
+    <div class="lista-titulo">Lista de Dispositivos Remotos</div>
+    <div id="dispositivos-container">
+        <!-- Gerado Dinamicamente -->
+    </div>
+
+    <div id="status-log">Consola de Status: Aguardando ações móveis...</div>
+</body>
+</html>
