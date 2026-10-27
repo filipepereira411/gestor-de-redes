@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestor de Rede IP HTA</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    
+    <hta:application 
+        id="oNetManager"
+        applicationname="GestorRedeHTA"
+        border="thick"
+        maximizebutton="yes"
+        minimizebutton="yes"
+        scroll="yes"
+        singleinstance="yes"
+    >
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 20px; }
+        h2 { color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-top: 0; }
+        .config-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .info-box { background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.95em; color: #1e40af; }
+        .form-group { margin-bottom: 10px; display: inline-block; margin-right: 20px; }
+        label { font-weight: bold; display: inline-block; margin-right: 8px; }
+        input[type="text"] { padding: 6px; width: 140px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-family: monospace; }
+        select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        button { color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-add { background-color: #2563eb; }
+        .btn-add:hover { background-color: #1d4ed8; }
+        .btn-allow { background-color: #d97706; }
+        .btn-allow:hover { background-color: #b45309; }
+        .btn-remote { background-color: #10b981; padding: 4px 10px; font-size: 0.9em; }
+        .btn-remote:hover { background-color: #059669; }
+        .btn-remove { background-color: #ef4444; padding: 4px 10px; font-size: 0.9em; }
+        .btn-remove:hover { background-color: #dc2626; }
+
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #1e293b; color: white; font-weight: 600; }
+        tr:hover { background-color: #f8fafc; }
+        .ip-cell { font-family: monospace; font-weight: bold; font-size: 1.05em; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.85em; font-weight: bold; }
+        .badge-active { background-color: #dcfce7; color: #166534; }
+        .badge-inactive { background-color: #f1f5f9; color: #475569; }
+        
+        #status-log { font-family: monospace; background: #1e293b; color: #38bdf8; padding: 10px; border-radius: 6px; margin-top: 15px; }
+    </style>
+
+    <script language="javascript">
+        var myIP = "Não detetado";
+        var dispositivos = [
+            { ip: "192.168.0.2", nome: "Servidor Principal", perifericos: "Sim" }
+        ];
+
+        window.onload = function() {
+            window.resizeTo(1050, 750);
+            atualizarTabela();
+            // Executa com um ligeiro atraso para garantir que o HTML já existe na memória
+            setTimeout(getMyIP, 100);
+        };
+
+        function getMyIP() {
+            try {
+                var wshShell = new ActiveXObject("WScript.Shell");
+                var execObj = wshShell.Exec("cmd.exe /c ipconfig");
+                var output = execObj.StdOut.ReadAll();
+                var lines = output.split("\r\n");
+                
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (line.indexOf("IPv4") > -1 && line.indexOf("192.168.") > -1) {
+                        myIP = line.substring(line.indexOf(":") + 2).trim();
+                        break;
+                    }
+                }
+                var span = document.getElementById("local-ip-span");
+                if (span) span.innerText = myIP;
+            } catch(e) {
+                var span = document.getElementById("local-ip-span");
+                if (span) span.innerText = "Erro ao detetar";
+            }
+        }
+
+        function AllowRemoteAccess() {
+            try {
+                var wshShell = new ActiveXObject("WScript.Shell");
+                wshShell.Run("sysdm.cpl ,5");
+                var log = document.getElementById("status-log");
+                if (log) log.innerHTML = "A abrir painel do Windows para permitir conexões de entrada...";
+            } catch(e) {
+                alert("Erro ao abrir configurações.");
+            }
+        }
+
+        function atualizarTabela() {
+            var tbody = document.getElementById("dispositivos-body");
+            if (!tbody) return;
+
+            var html = "";
+            if (dispositivos.length === 0) {
+                html = "<tr><td colspan='5' style='text-align:center; color:#64748b;'>Nenhum dispositivo na tabela. Adicione um acima.</td></tr>";
+            } else {
+                for (var i = 0; i < dispositivos.length; i++) {
+                    var d = dispositivos[i];
+                    var badgeClass = (d.perifericos === "Sim") ? "badge badge-active" : "badge badge-inactive";
+                    
+                    html += "<tr>";
+                    html += "  <td>" + d.nome + "</td>";
+                    html += "  <td class='ip-cell'>" + d.ip + "</td>";
+                    html += "  <td><span class='" + badgeClass + "'>" + d.perifericos + "</span></td>";
+                    html += "  <td>";
+                    html += "    <button class='btn-remote' onclick=\"ExecutarRemoto('" + d.ip + "', '" + d.perifericos + "')\">Remotar</button>";
+                    html += "  </td>";
+                    html += "  <td>";
+                    html += "    <button class='btn-remove' onclick='RemoverDispositivo(" + i + ")'>Retirar</button>";
+                    html += "  </td>";
+                    html += "</tr>";
+                }
+            }
+            tbody.innerHTML = html;
+        }
+
+        function AdicionarDispositivo() {
+            var ip = document.getElementById("new_ip").value.trim();
+            var nome = document.getElementById("new_nome").value.trim();
+            var perf = document.getElementById("new_perf").value;
+            
+            if (ip === "" || nome === "") {
+                alert("Por favor, preencha o Nome e o IP do dispositivo.");
+                return;
+            }
+            
+            dispositivos.push({ ip: ip, nome: nome, perifericos: perf });
+            atualizarTabela();
+            
+            document.getElementById("new_ip").value = "";
+            document.getElementById("new_nome").value = "";
+            
+            var log = document.getElementById("status-log");
+            if (log) log.innerHTML = "Dispositivo " + nome + " (" + ip + ") adicionado com sucesso.";
+        }
+
+        function RemoverDispositivo(index) {
+            var removido = dispositivos[index].nome;
+            dispositivos.splice(index, 1);
+            atualizarTabela();
+            
+            var log = document.getElementById("status-log");
+            if (log) log.innerHTML = "Dispositivo " + removido + " retirado da tabela.";
+        }
+        
+        function ExecutarRemoto(targetIP, partilhaPerifericos) {
+            try {
+                var wshShell = new ActiveXObject("WScript.Shell");
+                var cmd = "mstsc.exe /v:" + targetIP;
+                
+                var log = document.getElementById("status-log");
+                if (partilhaPerifericos === "Sim") {
+                    cmd += " /Clipboard /Drives";
+                    if (log) log.innerHTML = "A iniciar RDP para " + targetIP + " com partilha de Periféricos...";
+                } else {
+                    if (log) log.innerHTML = "A iniciar RDP simples para " + targetIP + "...";
+                }
+                
+                wshShell.Run(cmd);
+            } catch(e) {
+                alert("Erro ao executar o Ambiente de Trabalho Remoto.");
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <h2>Gestor de Ativos de Rede (Controlo Bidirecional)</h2>
+    
+    <div class="info-box">
+        O seu IP local atual é: <strong><span id="local-ip-span">A detetar...</span></strong>. 
+        Para que outro computador consiga controlar a sua máquina remota: 
+        <button class="btn-allow" onclick="AllowRemoteAccess()" style="margin-left:15px;">Permitir que me Remotem</button>
+    </div>
+
+    <div class="config-box">
+        <h4 style="margin-top:0; margin-bottom:10px; color:#1e3a8a;">Inserir Novo Dispositivo na Tabela</h4>
+        
+        <div class="form-group">
+            <label>Nome do PC:</label>
+            <input type="text" id="new_nome" style="width: 160px; text-align: left;" placeholder="Ex: PC Contabilidade">
+        </div>
+
+        <div class="form-group">
+            <label>Endereço IP:</label>
+            <input type="text" id="new_ip" placeholder="192.168.1.X">
+        </div>
+
+        <div class="form-group">
+            <label>Partilhar Periféricos:</label>
+            <select id="new_perf">
+                <option value="Sim">Sim (Discos/Clipboard)</option>
+                <option value="Não">Não</option>
+            </select>
+        </div>
+
+        <button class="btn-add" onclick="AdicionarDispositivo()">Meter Dispositivo</button>
+    </div>
+
+    <h3 style="color: #1e3a8a; margin-bottom: 5px;">Tabela de Dispositivos Remotos</h3>
+    <table>
+        <thead>
+            <tr>
+                <th width="30%">Nome do Dispositivo</th>
+                <th width="25%">Endereço IP</th>
+                <th width="20%">Periféricos</th>
+                <th width="12%">Ação</th>
+                <th width="13%">Gestão</th>
+            </tr>
+        </thead>
+        <tbody id="dispositivos-body">
+        </tbody>
+    </table>
+
